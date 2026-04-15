@@ -40,7 +40,6 @@ def extract_news(soup):
                 "url": link,
                 "complexity": complexity,
                 "habr_id": habr_id,
-                "label": "habr"
             })
 
         except Exception:
