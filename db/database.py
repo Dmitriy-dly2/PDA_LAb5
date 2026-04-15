@@ -31,12 +31,10 @@ class News(Base):
     __tablename__ = "news"
 
     id = Column(Integer, primary_key=True, index=True)
-
     title = Column(String)
     author = Column(String)
     url = Column(String, unique=True)
     complexity = Column(String)
-
     habr_id = Column(String, unique=True)
     label = Column(String)
 
