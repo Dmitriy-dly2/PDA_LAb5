@@ -3,21 +3,26 @@ import os
 from bottle import route, request, redirect, template, run, TEMPLATE_PATH
 from sqlalchemy import func
 
+# --- НАСТРОЙКА ПУТЕЙ (Чтобы работало везде) ---
+
+# Находим корень проекта (PDA_LAb5)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Добавляем корень в пути поиска модулей, чтобы импорт "from db.database" работал
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
+# Настраиваем путь к шаблонам относительно этого файла
+# Это исправит ошибку "Template not found" на другом компе
 template_path = os.path.join(BASE_DIR, 'web', 'templates')
 if template_path not in TEMPLATE_PATH:
     TEMPLATE_PATH.insert(0, template_path)
 
-print(f"Ищу шаблоны здесь: {template_path}")
-
 try:
     from db.database import get_session, News
 except ImportError:
-    print("Ошибка: Не удалось найти db.database или класс News. Проверь структуру папок!")
-    
+    print("Ошибка: Не удалось найти db.database. Проверь, что папка db на месте!") 
+      
 # --- СТРАНИЦЫ САЙТА ---
 @route('/test_db')
 def test_db():
