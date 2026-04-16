@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import IntegrityError
+import os
 
 # =========================
 # BASE + ENGINE
@@ -8,9 +9,12 @@ from sqlalchemy.exc import IntegrityError
 
 Base = declarative_base()
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "db/news.db")
+
 engine = create_engine(
-    "sqlite:///db/news.db",
-    echo=False
+    f"sqlite:///{DB_PATH}",
+    connect_args={"check_same_thread": False}  # важно для Bottle
 )
 
 SessionLocal = sessionmaker(
@@ -47,17 +51,15 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
 
+# 👉 ВАЖНО: создаем таблицы при старте
+init_db()
+
+
 # =========================
 # CRUD OPERATIONS
 # =========================
 
 def create_news(item: dict):
-    """
-    Добавление новости.
-    item = {
-        title, author, url, complexity, habr_id, label
-    }
-    """
     session = get_session()
     try:
         news = News(**item)
@@ -104,10 +106,6 @@ def update_label(habr_id: str, new_label: str):
 
 
 def upsert_news(item: dict):
-    """
-    Если запись существует → можно обновить
-    Если нет → создать
-    """
     session = get_session()
     try:
         news = session.query(News).filter(
