@@ -1,6 +1,8 @@
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.exc import IntegrityError
+import os
+import json
 
 # =========================
 # BASE + ENGINE
@@ -8,9 +10,12 @@ from sqlalchemy.exc import IntegrityError
 
 Base = declarative_base()
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DB_PATH = os.path.join(BASE_DIR, "db/news.db")
+
 engine = create_engine(
-    "sqlite:///db/news.db",
-    echo=False
+    f"sqlite:///{DB_PATH}",
+    connect_args={"check_same_thread": False}
 )
 
 SessionLocal = sessionmaker(
@@ -18,6 +23,7 @@ SessionLocal = sessionmaker(
     autoflush=False,
     autocommit=False
 )
+
 
 def get_session():
     return SessionLocal()
@@ -36,9 +42,10 @@ class News(Base):
     author = Column(String)
     url = Column(String, unique=True)
     complexity = Column(String)
-
     habr_id = Column(String, unique=True)
     label = Column(String)
+    tags = Column(String)
+    reading_time = Column(Integer)
 
 
 # =========================
@@ -48,20 +55,34 @@ class News(Base):
 def init_db():
     Base.metadata.create_all(bind=engine)
 
+init_db()
+
 
 # =========================
-# CRUD OPERATIONS
+# HELPERS
 # =========================
+
+def serialize_tags(tags):
+    if not tags:
+        return "[]"
+    return json.dumps(tags, ensure_ascii=False)
+
+
+def deserialize_tags(tags_str):
+    if not tags_str:
+        return []
+    try:
+        return json.loads(tags_str)
+    except Exception:
+        return []
+
 
 def create_news(item: dict):
-    """
-    Добавление новости.
-    item = {
-        title, author, url, complexity, habr_id, label
-    }
-    """
     session = get_session()
     try:
+        item = item.copy()
+        item["tags"] = serialize_tags(item.get("tags"))
+
         news = News(**item)
         session.add(news)
         session.commit()
@@ -106,12 +127,11 @@ def update_label(habr_id: str, new_label: str):
 
 
 def upsert_news(item: dict):
-    """
-    Если запись существует → можно обновить
-    Если нет → создать
-    """
     session = get_session()
     try:
+        item = item.copy()
+        item["tags"] = serialize_tags(item.get("tags"))
+
         news = session.query(News).filter(
             News.habr_id == item["habr_id"]
         ).first()
