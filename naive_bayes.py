@@ -150,14 +150,14 @@ class NaiveBayesClassifier:
     # =========================
     # OPTIONAL: PROBABILITIES
     # =========================
-    def predict_proba(self, X):
+    def predict_proba(self, x):
 
         total_docs = sum(self.class_counts.values())
         vocab_size = len(self.vocabulary)
 
         results = []
 
-        for item in X:
+        for item in x:
 
             features = self.build_features(
                 item["title"],
