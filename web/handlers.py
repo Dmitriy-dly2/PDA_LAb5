@@ -1,235 +1,218 @@
-<<<<<<< HEAD
 from bottle import route, request, redirect, template, run, TEMPLATE_PATH
-import os, sys, string
+import os
+import sys
+import string
+import json
+from naive_bayes import NaiveBayesClassifier
+from db.database import get_session, News, init_db, update_label
+from sklearn.model_selection import train_test_split
 
-# --- ПУТИ ---
+# --- PATHS ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(CURRENT_DIR)
-=======
-import sys
-import os
-from bottle import route, request, redirect, template, run, TEMPLATE_PATH
-
-# --- BASE PATH ---
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
->>>>>>> fac5ef82ba9cef6b1016a5df761775f14e12ff63
 
 if BASE_DIR not in sys.path:
     sys.path.append(BASE_DIR)
 
-<<<<<<< HEAD
 TEMPLATE_DIR = os.path.join(CURRENT_DIR, 'templates')
 if TEMPLATE_DIR not in TEMPLATE_PATH:
     TEMPLATE_PATH.insert(0, TEMPLATE_DIR)
 
-# --- ИМПОРТЫ ---
-from naive_bayes import NaiveBayesClassifier
-from db.database import get_session, News
-from sqlalchemy import or_
+# --- INIT DB ---
+try:
+    init_db()
+except Exception as e:
+    print(f"Ошибка инициализации БД: {e}")
+
 
 # --- CLEAN ---
 def clean(s):
+    if not s:
+        return ""
     translator = str.maketrans("", "", string.punctuation)
     return s.translate(translator).lower()
 
-# --- РОУТЫ ---
 
+# =========================
+# INDEX
+# =========================
 @route('/')
 def index():
     return redirect('/news')
-=======
-# templates path
-template_path = os.path.join(BASE_DIR, 'web', 'templates')
-if template_path not in TEMPLATE_PATH:
-    TEMPLATE_PATH.insert(0, template_path)
-
-# --- DB IMPORT ---
-from db.database import get_session, News, update_label
 
 
-# --- ROUTES ---
-
-@route('/test_db')
-def test_db():
-    s = get_session()
-    try:
-        rows = s.query(News).filter(News.label == None).all()
-        return f"Количество новостей без метки: {len(rows)}"
-    finally:
-        s.close()
->>>>>>> fac5ef82ba9cef6b1016a5df761775f14e12ff63
-
-
+# =========================
+# NEWS LIST
+# =========================
 @route('/news')
 def news_list():
     s = get_session()
-    try:
-<<<<<<< HEAD
-        print("=== NEWS DEBUG ===")
-        print("ВСЕГО В БД:", s.query(News).count())
 
-        all_news = s.query(News).all()
-        print("ПЕРВЫЕ МЕТКИ:", [n.label for n in all_news[:10]])
+    try:
+        print("\n=== NEWS LIST DEBUG ===")
 
         rows = s.query(News).filter(
-            or_(
-                News.label == None,
-                News.label == '',
-                News.label == 'habr'
-            )
-        ).all()
+            News.label.is_(None)).all()
 
-        print("НЕРАЗМЕЧЕННЫЕ:", len(rows))
-
-        for row in rows:
-            row.predicted_label = None
+        if rows:
+            for n in rows[:5]:
+                print(f"ID: {n.id}, Label: '{n.label}', Title: {n.title[:50]}")
 
         return template('news_template', rows=rows, is_recommendations=False)
 
-=======
-        rows = s.query(News).filter(
-            (News.label == None) | (News.label == 'habr')
-        ).all()
-
-        return template('news_template', rows=rows)
->>>>>>> fac5ef82ba9cef6b1016a5df761775f14e12ff63
     finally:
         s.close()
 
 
+# =========================
+# ADD LABEL (manual training data)
+# =========================
 @route('/add_label')
 def add_label():
     label = request.query.get('label')
-<<<<<<< HEAD
-    news_id = int(request.query.get('id'))
+    habr_id = request.query.get('id')
 
-    s = get_session()
-    try:
-        item = s.query(News).filter(News.id == news_id).first()
-        if item:
-            item.label = label
-            s.commit()
-            print(f"Поставили метку: {label} для id={news_id}")
-=======
-    news_id = request.query.get('id')
+    print(f"DEBUG add_label: habr_id={habr_id}, label={label}")
 
-    if not label or not news_id:
-        return "Missing label or id"
+    result = update_label(habr_id, label)
 
-    # ВАЖНО: используем функцию из database.py
-    # но она работает по habr_id, поэтому сначала получаем его
-
-    s = get_session()
-    try:
-        item = s.query(News).filter(News.id == int(news_id)).first()
-
-        if item:
-            update_label(item.habr_id, label)
-
->>>>>>> fac5ef82ba9cef6b1016a5df761775f14e12ff63
-    finally:
-        s.close()
+    print(f"DEBUG add_label result: {result}")
 
     return redirect('/news')
 
 
+# =========================
+# RECOMMENDATIONS (ML PART)
+# =========================
 @route('/recommendations')
 def recommendations():
-<<<<<<< HEAD
     s = get_session()
     try:
         print("\n=== RECOMMENDATIONS DEBUG ===")
 
-        # --- ОБУЧЕНИЕ ---
+        # Ищем статьи с label в одном из этих значений
         labeled = s.query(News).filter(
-            News.label.in_(['good', 'never'])
+            News.label.in_(['good', 'maybe', 'never'])
         ).all()
 
-        print("РАЗМЕЧЕННЫЕ:", len(labeled))
-        print("УНИКАЛЬНЫЕ МЕТКИ:", set(n.label for n in labeled))
+        print(f"DEBUG: Найдено помеченных статей: {len(labeled)}")
 
-        if len(set(n.label for n in labeled)) < 2:
-            return "<h3>❗ Нужно разметить хотя бы 2 разных класса (good и never)</h3>"
+        if labeled:
+            label_counts = {}
+            for n in labeled:
+                label_counts[n.label] = label_counts.get(n.label, 0) + 1
+            print(f"DEBUG: Распределение меток: {label_counts}")
 
-        X_train = [clean(n.title) for n in labeled]
-        y_train = [n.label for n in labeled]
+        labels_set = set(n.label for n in labeled)
 
-        model = NaiveBayesClassifier(alpha=1.0)
-        model.fit(X_train, y_train)
+        if len(labels_set) < 2:
+            return "<h3>❗ Нужно минимум 2 класса: good и never</h3>"
 
-        # --- ПРЕДСКАЗАНИЕ ---
-        unlabeled = s.query(News).filter(
-            or_(
-                News.label == None,
-                News.label == '',
-                News.label == 'habr'
+        # Подготовка данных
+        x_data = []
+        y_data = []
+
+        for n in labeled:
+            x_data.append({
+                "title": n.title,
+                "tags": json.loads(n.tags) if n.tags else [],
+                "complexity": n.complexity,
+                "reading_time": n.reading_time
+            })
+            y_data.append(n.label)
+
+        # При малом количестве данных (< 50) используем все для обучения
+        if len(x_data) < 50:
+            x_train = x_data
+            y_train = y_data
+            accuracy = None  # Не рассчитываем точность на обучающем наборе
+        else:
+            # При большом количестве разделяем 80/20
+            from sklearn.model_selection import train_test_split
+            x_train, x_test, y_train, y_test = train_test_split(
+                x_data, y_data, test_size=0.2, random_state=42
             )
-        ).all()
 
-        print("НЕРАЗМЕЧЕННЫЕ:", len(unlabeled))
+            # Обучаем модель для расчета точности
+            temp_model = NaiveBayesClassifier(alpha=0.5)
+            temp_model.fit(x_train, y_train)
 
-        X_test = [clean(n.title) for n in unlabeled]
-        preds = model.predict(X_test)
+            try:
+                accuracy = temp_model.evaluate_accuracy(x_test, y_test)
+                accuracy = round(accuracy * 100, 2)
+                print(f"Точность на тестовом наборе: {accuracy}%")
+            except Exception as e:
+                print(f"Ошибка при вычислении точности: {e}")
+                accuracy = 0
 
-        final_preds = []
+        # Обучаем на всех данных
+        model = NaiveBayesClassifier(alpha=0.5)
+        model.fit(x_train, y_train)
 
-        for p in preds:
-            if p == 'good':
-                final_preds.append('good')
-            elif p == 'never':
-                final_preds.append('never')
-            else:
-                final_preds.append('maybe')
+        unlabeled = s.query(News).filter(
+            News.label.is_(None)).all()
 
-        print("ПРЕДСКАЗАНИЯ:", preds[:10])
+        print(f"Найдено {len(unlabeled)} неразмеченных статей")
+
+        if not unlabeled:
+            return "<h3>❗ Нет неразмеченных статей</h3>"
+
+        x_test = []
+        for n in unlabeled:
+            x_test.append({
+                "title": n.title,
+                "tags": json.loads(n.tags) if n.tags else [],
+                "complexity": n.complexity,
+                "reading_time": n.reading_time
+            })
+
+        preds = model.predict(x_test)
 
         for i, news in enumerate(unlabeled):
             news.predicted_label = preds[i]
 
-        # --- СОРТИРОВКА ---
         order = {'good': 0, 'maybe': 1, 'never': 2}
-
         sorted_news = sorted(
             unlabeled,
             key=lambda x: order.get(x.predicted_label, 3)
         )
 
-        return template('news_template', rows=sorted_news, is_recommendations=True)
+        return template(
+            'news_template',
+            rows=sorted_news,
+            is_recommendations=True,
+            accuracy=accuracy
+        )
 
+    except Exception as e:
+        print(f"КРИТИЧЕСКАЯ ОШИБКА: {e}")
+        import traceback
+        traceback.print_exc()
+        return f"<h3>Ошибка: {e}</h3>"
     finally:
         s.close()
 
 
+# =========================
+# RESET LABELS
+# =========================
 @route('/reset_labels')
 def reset_labels():
     s = get_session()
     try:
         s.query(News).update({News.label: None})
         s.commit()
-        print("ВСЕ МЕТКИ СБРОШЕНЫ")
+        print("LABELS RESET")
     finally:
         s.close()
 
     return "OK"
 
 
+# =========================
+# RUN SERVER
+# =========================
 if __name__ == "__main__":
-    print(f"Шаблоны: {TEMPLATE_DIR}")
-=======
-    return template('news_template', rows=[])
-
-
-@route('/update_news')
-def update_news():
-    # У тебя тут нет импорта get_news — иначе будет crash
-    from parser import get_news  # или откуда он у тебя
-
-    get_news("https://habr.com/ru/articles/", target_count=30)
-    return redirect('/news')
-
-
-# --- RUN ---
-if __name__ == "__main__":
-    print("Server started: http://localhost:8080/news")
->>>>>>> fac5ef82ba9cef6b1016a5df761775f14e12ff63
-    run(host='localhost', port=8080, debug=True, reloader=True)
+    print(f"Ищу шаблоны здесь: {TEMPLATE_DIR}")
+    print("Сервер запущен! Перейди по ссылке: http://localhost:8080/news")
+    run(host='localhost', port=8080, debug=False, reloader=False)
