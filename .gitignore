@@ -1,10 +1,24 @@
-# Virtual environments
-.venv/
+# === Python ===
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
 
-# IDE (JetBrains)
+# === virtual environment ===
+.venv/
+venv/
+ENV/
+
+# === PyCharm / JetBrains ===
 .idea/
 *.iml
 
-# Python cache
-__pycache__/
-*.py[cod]
+# === SQLite database ===
+*.sqlite3
+
+# === system files ===
+.DS_Store
+Thumbs.db
+
+# === logs ===
+*.log
