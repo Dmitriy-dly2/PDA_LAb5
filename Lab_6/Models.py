@@ -49,7 +49,7 @@ svd = SVD(n_factors=120, n_epochs=25)
 svd.fit(trainset)
 
 preds = svd.test(testset)
-svd_mae = accuracy.mae(preds)
+svd_mae = accuracy.mae(preds, verbose=False)
 
 print("SVD MAE:", svd_mae)
 
