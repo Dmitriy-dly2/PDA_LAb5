@@ -16,7 +16,7 @@ books["Year-Of-Publication"] = pd.to_numeric(
 # Удаляем некорректные года
 books = books[
     (books["Year-Of-Publication"] >= 1900) &
-    (books["Year-Of-Publication"] <= 2025)
+    (books["Year-Of-Publication"] <= 2026)
 ]
 
 # Удаляем строки с пропусками автора или издателя

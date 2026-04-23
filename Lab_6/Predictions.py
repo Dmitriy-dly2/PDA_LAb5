@@ -7,14 +7,14 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import ndcg_score
 
 # =====================================================
-# 📦 LOAD DATA
+# ЗАГРУЗКА ДАННЫХ
 # =====================================================
 
 ratings = pd.read_csv("Files/Ratings_cleaned.csv")
 books = pd.read_csv("Files/Books_cleaned.csv")
 
 # =====================================================
-# 📦 LOAD MODELS
+# ЗАГРУЗКА МОДЕЛЕЙ
 # =====================================================
 
 with open("models/svd_model.pkl", "rb") as f:
@@ -30,7 +30,7 @@ with open("models/ohe.pkl", "rb") as f:
     ohe = pickle.load(f)
 
 # =====================================================
-# 📌 FEATURE MATRIX (BOOKS)
+# МАТРИЦА ПРИЗНАКОВ (КНИГИ)
 # =====================================================
 
 books = books.copy().reset_index(drop=True)
@@ -41,7 +41,7 @@ cat = ohe.transform(books[["Book-Author", "Publisher"]])
 X_books = hstack([title_vec, cat])
 
 # =====================================================
-# 1️⃣ USER WITH MOST ZERO RATINGS (FIXED SAFE VERSION)
+# Рекомендация для пользователя, у которого в исходном датасете больше всего нулевых оценок
 # =====================================================
 
 zero_ratings = ratings[ratings["Book-Rating"] == 0]
@@ -55,14 +55,14 @@ user_zero_data = ratings[ratings["User-ID"] == user_zero]
 seen_books = set(user_zero_data["ISBN"])
 
 # -----------------------------------------------------
-# STEP 1: filter BOOKS FIRST (IMPORTANT FIX)
+# ШАГ 1: сначала фильтруем книги (ВАЖНОЕ ИСПРАВЛЕНИЕ)
 # -----------------------------------------------------
 
 candidate_zero = books[~books["ISBN"].isin(seen_books)].copy()
 candidate_zero = candidate_zero.reset_index(drop=True)
 
 # -----------------------------------------------------
-# STEP 2: SVD PREDICTION
+# ШАГ 2: предсказание SVD
 # -----------------------------------------------------
 
 candidate_zero["svd_score"] = [
@@ -71,14 +71,14 @@ candidate_zero["svd_score"] = [
 ]
 
 # -----------------------------------------------------
-# STEP 3: FILTER
+# ШАГ 3: фильтрация
 # -----------------------------------------------------
 
 filtered_zero = candidate_zero[candidate_zero["svd_score"] >= 8].copy()
 filtered_zero = filtered_zero.reset_index(drop=True)
 
 # -----------------------------------------------------
-# STEP 4: BUILD FEATURES ONLY FOR FILTERED
+# ШАГ 4: построение признаков только для отфильтрованных
 # -----------------------------------------------------
 
 title_vec_zero = tfidf.transform(filtered_zero["Book-Title"].fillna(""))
@@ -87,12 +87,12 @@ cat_zero = ohe.transform(filtered_zero[["Book-Author", "Publisher"]])
 X_zero = hstack([title_vec_zero, cat_zero])
 
 # -----------------------------------------------------
-# STEP 5: LINREG PREDICTION
+# ШАГ 5: предсказание линейной регрессии
 # -----------------------------------------------------
 
 filtered_zero["linreg_score"] = linreg.predict(X_zero)
 
-# sort
+# сортировка
 rec_zero_user = filtered_zero.sort_values("linreg_score", ascending=False)
 
 print("\n📌 RECOMMENDATION #1 (ZERO USER)")
@@ -100,13 +100,13 @@ print(rec_zero_user[["Book-Title", "svd_score", "linreg_score"]].head(10))
 
 
 # =====================================================
-# 2️⃣ RECOMMENDATION FOR MOST ACTIVE USER
+# Рекомендация для пользователя, который оценил больше всего книг
 # =====================================================
 
 user_most = ratings["User-ID"].value_counts().idxmax()
 user_most_data = ratings[ratings["User-ID"] == user_most]
 
-# train/test split (IMPORTANT for evaluation)
+# разделение на train/test (ВАЖНО для оценки)
 train, test = train_test_split(user_most_data, test_size=0.2, random_state=42)
 
 test_books = set(test["ISBN"])
@@ -114,7 +114,7 @@ seen_train = set(train["ISBN"])
 
 candidate_active = books[~books["ISBN"].isin(seen_train)].copy()
 
-# SVD prediction
+# предсказание SVD
 candidate_active["svd_score"] = [
     svd.predict(user_most, isbn).est
     for isbn in candidate_active["ISBN"]
@@ -123,7 +123,7 @@ candidate_active["svd_score"] = [
 top10_active = candidate_active.sort_values("svd_score", ascending=False).head(10)
 
 # =====================================================
-# 📊 METRICS
+# Метрики
 # =====================================================
 
 hit_rate = sum(isbn in test_books for isbn in top10_active["ISBN"]) / 10

@@ -15,21 +15,17 @@ from sklearn.metrics import mean_absolute_error
 
 from scipy.sparse import hstack
 
-# =====================================================
-# 📁 ПАПКА ДЛЯ МОДЕЛЕЙ
-# =====================================================
-
 os.makedirs("models", exist_ok=True)
 
 # =====================================================
-# 📌 ЗАГРУЗКА ДАННЫХ
+# ЗАГРУЗКА ДАННЫХ
 # =====================================================
 
 ratings = pd.read_csv("Files/Ratings_cleaned.csv")
 books = pd.read_csv("Files/Books_cleaned.csv")
 
 # =====================================================
-# 🤖 1. SVD
+# 1. SVD
 # =====================================================
 
 book_counts = ratings["ISBN"].value_counts()
@@ -62,7 +58,7 @@ with open("models/svd_model.pkl", "wb") as f:
     pickle.dump(svd, f)
 
 # =====================================================
-# 📊 2. LINEAR REGRESSION (СТАБИЛЬНАЯ ВЕРСИЯ)
+# 2. LINEAR REGRESSION
 # =====================================================
 
 # target = средний рейтинг книги
@@ -85,9 +81,6 @@ cat = encoder.fit_transform(
     data_lr[["Book-Author", "Publisher"]]
 )
 
-# -------------------------
-# TARGET (СТАБИЛИЗАЦИЯ)
-# -------------------------
 y = np.clip(data_lr["target"].values, 1, 10)
 
 # -------------------------
@@ -114,16 +107,13 @@ linreg = SGDRegressor(
 
 linreg.fit(X_train, y_train)
 
-# -------------------------
-# EVALUATION
-# -------------------------
 preds_lr = linreg.predict(X_test)
 lr_mae = mean_absolute_error(y_test, preds_lr)
 
 print("Linear Regression MAE:", lr_mae)
 
 # =====================================================
-# 💾 SAVE EVERYTHING
+# Сохранение моделей
 # =====================================================
 
 with open("models/linreg_model.pkl", "wb") as f:

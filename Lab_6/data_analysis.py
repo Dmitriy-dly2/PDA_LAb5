@@ -1,6 +1,6 @@
-import pandas as pd  # импорт библиотеки для работы с таблицами (DataFrame)
-import matplotlib.pyplot as plt  # импорт библиотеки для построения графиков
-import seaborn as sns  # импорт библиотеки для более красивых визуализаций
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Загружаем датасет с рейтингами книг из CSV-файла
 ratings = pd.read_csv("Files/Ratings.csv")
